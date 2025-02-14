@@ -3,120 +3,123 @@
 #include <iostream>
 #include <cmath>
 #include <random>
+#include "Ship.h"
+#include "list"
+#include "iterator"
+struct Bullet {
+    float x;
+    float y;
+};
+struct Enemy {
+    float x;
+    float y;
+};
+
 
 int main() {
+    std::list <Enemy> enemies;
+    std::list <Bullet> bullets;
+    sf::Clock clock;
+    sf::Time currentTime;
+    sf::Time preTime;
+    sf::Time bulletTime = sf::seconds(-0.5f);
+    sf::Time enemyTime = sf::seconds(0);
     std::mt19937 generator;
-    std::uniform_real_distribution<float> distribution(10, 600);
-    float shapePositionX = 0;
-    float shapePositionY = 0;
-    float shapeSize = 50;
-    float foodSize = 10;
-    float foodPositionX = 500;
-    float foodPositionY = 500;
-    sf::RectangleShape shape({shapeSize, shapeSize});
-    sf::RectangleShape food({foodSize, foodSize});
-    shape.setOrigin(shape.getGeometricCenter());
-    food.setOrigin(food.getGeometricCenter());
-    sf::Vector2f origin = shape.getOrigin();
-    std::cout << origin.x << " " << origin.y << std::endl;
-    std::cout << origin.x << " " << origin.y << std::endl;
-    shape.setFillColor(sf::Color(100, 250, 50));
-    food.setFillColor(sf::Color(250, 100, 50));
+    std::uniform_real_distribution<float> distribution(25, 775);
     unsigned windowWidth = 800;
     unsigned windowHeight = 600;
     auto window = sf::RenderWindow(sf::VideoMode({windowWidth, windowHeight}), "CMake SFML Project");
+    bool movingLeft = false;
+    bool movingRight = false;
     window.setFramerateLimit(165);
     window.setKeyRepeatEnabled(false);
-    bool isShapeMovingUp = false;
-    bool isShapeMovingDown = false;
-    bool isShapeMovingLeft = false;
-    bool isShapeMovingRight = false;
-    float shapeSpeed = 1;
-    food.setPosition({foodPositionX, foodPositionY});
-    while (window.isOpen())
-    {
-        while (const std::optional event = window.pollEvent())
-        {
-            if (event->is<sf::Event::Closed>())
-            {
+    Ship ship;
+    sf::Vector2<float> bulletRecPos;
+    sf::Vector2<float> enemyRecPos;
+    sf::FloatRect bulletRec({bulletRecPos}, {8,15});
+    sf::FloatRect enemyRec({enemyRecPos},{25,25});
+    sf::RectangleShape shipShape({25, 25});
+    sf::RectangleShape bulletShape({8, 15});
+    sf::RectangleShape enemyShape({25, 25});
+    shipShape.setPosition({ship.getShipX(), ship.getShipY()});
+    shipShape.setFillColor(sf::Color::Red);
+    enemyShape.setFillColor(sf::Color::Green);
+    shipShape.setOrigin(shipShape.getGeometricCenter());
+    bulletShape.setOrigin(bulletShape.getGeometricCenter());
+    enemyShape.setOrigin(enemyShape.getGeometricCenter());
+    while (window.isOpen()) {
+        while (const std::optional event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()){
                 window.close();
             }
-            else if (const auto* keyPress = event->getIf<sf::Event::KeyPressed>()) {
-                if (keyPress->code == sf::Keyboard::Key::Escape) {
+            else if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()){
+                if (keyPressed->code == sf::Keyboard::Key::Escape){
                     window.close();
                 }
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) {
-                    isShapeMovingUp = true;
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)){
+                    movingLeft = true;
                 }
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) {
-                    isShapeMovingDown = true;
+                if (keyPressed->code == sf::Keyboard::Key::D){
+                    movingRight = true;
                 }
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
-                    isShapeMovingLeft = true;
-                }
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) {
-                    isShapeMovingRight = true;
+                if (keyPressed->code == sf::Keyboard::Key::Space){
+                    if (currentTime.asSeconds() - bulletTime.asSeconds() >= 0.5){
+                        bulletTime = clock.getElapsedTime();
+                        bullets.push_back({ship.getShipX(), ship.getShipY()});
+                    }
                 }
             }
-            else if (const auto* keyRelease = event->getIf<sf::Event::KeyReleased>()) {
-                if (keyRelease->code == sf::Keyboard::Key::W) {
-                    isShapeMovingUp = false;
+            else if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>()){
+                if (keyReleased->code == sf::Keyboard::Key::A){
+                    movingLeft = false;
                 }
-                if (keyRelease->code == sf::Keyboard::Key::S) {
-                    isShapeMovingDown = false;
-                }
-                if (keyRelease->code == sf::Keyboard::Key::A) {
-                    isShapeMovingLeft = false;
-                }
-                if (keyRelease->code == sf::Keyboard::Key::D) {
-                    isShapeMovingRight = false;
+                if (keyReleased->code == sf::Keyboard::Key::D){
+                    movingRight = false;
                 }
             }
         }
-        if (isShapeMovingUp && isShapeMovingLeft) {
-            shapePositionX -= shapeSpeed/2;
-            shapePositionY -= shapeSpeed/2;
+        preTime = currentTime;
+        currentTime = clock.getElapsedTime();
+        float deltaTime = currentTime.asSeconds() - preTime.asSeconds();
+        if (currentTime - enemyTime >= sf::seconds(5.0f)) {
+            enemies.push_back({distribution(generator), 50});
+            enemyTime = clock.getElapsedTime();
         }
-        else if (isShapeMovingUp && isShapeMovingRight) {
-            shapePositionX += shapeSpeed/2;
-            shapePositionY -= shapeSpeed/2;
+        for (auto & it : bullets){
+            it.y -= 200 * deltaTime;
         }
-        else if (isShapeMovingDown && isShapeMovingLeft) {
-            shapePositionX -= shapeSpeed/2;
-            shapePositionY += shapeSpeed/2;
+        for (auto & it : bullets) {
+            for (std::list<Enemy>::iterator et{enemies.begin()}; et != enemies.end(); et++) {
+                bulletRec.position = {it.x,it.y};
+                enemyRec.position = {et->x,et->y};
+                if (bulletRec.findIntersection(enemyRec)){
+                    enemies.erase(et);
+                }
+            }
         }
-        else if (isShapeMovingDown && isShapeMovingRight) {
-            shapePositionX += shapeSpeed/2;
-            shapePositionY += shapeSpeed/2;
-        }
-        else if (isShapeMovingUp) {
-            shapePositionY -= shapeSpeed;
-        }
-        else if (isShapeMovingLeft) {
-            shapePositionX -= shapeSpeed;
-        }
-        else if (isShapeMovingRight) {
-            shapePositionX += shapeSpeed;
-        }
-        else if (isShapeMovingDown) {
-            shapePositionY += shapeSpeed;
-        }
-        //std::cout << shape.getOrigin().x + (shapeSize/2);
-        if (std::sqrt(std::pow(shapePositionX - foodPositionX, 2) + std::pow(shapePositionY - foodPositionY, 2)) <= shapeSize/2 + foodSize/2) {
-            shapeSize += 10;
-            foodPositionX = distribution(generator);
-            foodPositionY = distribution(generator);
-            shape.setSize({shapeSize, shapeSize});
-            food.setPosition({foodPositionX, foodPositionY});
-            shape.setOrigin(shape.getGeometricCenter());
 
-        }
+
+
 
 
         window.clear();
-        window.draw(food);
-        window.draw(shape);
-        shape.setPosition({shapePositionX, shapePositionY});
+        for (auto & it : enemies){
+            it.y += 100 * deltaTime;
+            enemyShape.setPosition({it.x, it.y});
+            window.draw(enemyShape);
+        }
+        if (movingLeft){
+            ship.moveLeft(ship.getVelocity());
+        }
+        if (movingRight){
+            ship.moveRight(ship.getVelocity());
+        }
+        shipShape.setPosition({ship.getShipX(), ship.getShipY()});
+        for (auto & it : bullets){
+            bulletShape.setPosition({it.x, it.y});
+            window.draw(bulletShape);
+        }
+        window.draw(shipShape);
         window.display();
     }
 }
